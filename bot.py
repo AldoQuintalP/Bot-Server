@@ -126,11 +126,16 @@ async def iniciar_servidor(interaction: discord.Interaction):
 
 @tree.command(name="estado_servidor", description="Verifica si el servidor de Minecraft está activo")
 async def estado_servidor(interaction: discord.Interaction):
+    await interaction.response.defer()  # ⚡ Responder primero para evitar el error de "Unknown interaction"
+
     try:
         with socket.create_connection((MINECRAFT_SERVER_IP, MINECRAFT_SERVER_PORT), timeout=5):
-            await interaction.response.send_message("✅ El servidor de Minecraft está activo y aceptando conexiones.")
+            mensaje = "✅ El servidor de Minecraft está activo y aceptando conexiones."
     except (socket.timeout, ConnectionRefusedError):
-        await interaction.response.send_message("❌ El servidor de Minecraft no está activo o no responde.")
+        mensaje = "❌ El servidor de Minecraft no está activo o no responde."
+
+    await interaction.followup.send(mensaje)  # 📌 Enviar la respuesta después de comprobar el estado
+
 
 @tree.command(name="apagar_servidor", description="Apaga el servidor de Minecraft")
 async def apagar_servidor(interaction: discord.Interaction):
