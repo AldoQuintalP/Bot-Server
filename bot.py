@@ -76,7 +76,7 @@ async def comandos(interaction: discord.Interaction):
         "- `/comandos` ➝ Muestra esta lista\n"
         "- `/servidor` ➝ Información del servidor de Discord\n"
         "- `/iniciar_servidor` ➝ Inicia el servidor de Minecraft\n"
-        "- `/apagar_servidor` ➝ Apaga el servidor de Minecraft\n"
+        "- `/apaga_servidor` ➝ Apaga el servidor de Minecraft\n"
         "- `/estado_servidor` ➝ Verifica si el servidor de Minecraft está activo\n"
         "- `/alimentar_mono` ➝ Alimenta al argentino mono (@CT) 🐵"
     )
@@ -146,31 +146,33 @@ async def apaga_servidor(interaction: discord.Interaction):
         return
 
     try:
-        # Intentar apagar el servidor de Minecraft de forma segura
-        process = subprocess.Popen(
-            "tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        # Verificar si hay procesos Java en ejecución
+        process = subprocess.Popen("tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, _ = process.communicate()
 
         if b"java.exe" in output or b"javaw.exe" in output:
-            # Enviar el comando "stop" al servidor si está corriendo
-            stop_command = 'echo "stop" | powershell -NoProfile -Command "& {Get-Process java | Stop-Process -Force}"'
-            subprocess.run(stop_command, shell=True)
+            await interaction.followup.send("🛑 Intentando apagar el servidor de Minecraft...")
 
-            time.sleep(5)  # Esperar un poco para confirmar el apagado
+            # Primero, intentar apagarlo con el comando "stop"
+            stop_command = 'powershell -Command "echo stop | Out-File -Encoding ASCII -Append server_input.txt"'
+            subprocess.run(stop_command, shell=True, cwd=SERVER_DIRECTORY)
 
-            # Verificar si el proceso Java sigue activo
-            process = subprocess.Popen(
-                "tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            time.sleep(5)  # Esperar un poco para ver si se apaga correctamente
+
+            # Verificar si sigue en ejecución
+            process = subprocess.Popen("tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output, _ = process.communicate()
 
             if b"java.exe" in output or b"javaw.exe" in output:
                 await interaction.followup.send("⚠️ El servidor sigue encendido. Intentando forzar el apagado...")
+
+                # Forzar el cierre de procesos Java
                 subprocess.run("taskkill /F /IM java.exe", shell=True)
-                await interaction.followup.send("✅ Servidor de Minecraft apagado con éxito.")
+                subprocess.run("taskkill /F /IM javaw.exe", shell=True)
+
+                await interaction.followup.send("✅ Servidor de Minecraft apagado con éxito mediante 'taskkill'.")
             else:
-                await interaction.followup.send("✅ Servidor de Minecraft apagado correctamente usando 'stop'.")
+                await interaction.followup.send("✅ Servidor de Minecraft apagado correctamente con el comando 'stop'.")
         else:
             await interaction.followup.send("❌ No se encontró un servidor de Minecraft en ejecución.")
 
