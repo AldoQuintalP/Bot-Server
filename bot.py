@@ -76,6 +76,7 @@ async def comandos(interaction: discord.Interaction):
         "- `/comandos` ➝ Muestra esta lista\n"
         "- `/servidor` ➝ Información del servidor de Discord\n"
         "- `/iniciar_servidor` ➝ Inicia el servidor de Minecraft\n"
+        "- `/apagar_servidor` ➝ Apaga el servidor de Minecraft\n"
         "- `/estado_servidor` ➝ Verifica si el servidor de Minecraft está activo\n"
         "- `/alimentar_mono` ➝ Alimenta al argentino mono (@CT) 🐵"
     )
@@ -94,17 +95,19 @@ async def servidor(interaction: discord.Interaction):
 
 @tree.command(name="iniciar_servidor", description="Inicia el servidor de Minecraft en la PC remota mediante SSH")
 async def iniciar_servidor(interaction: discord.Interaction):
+    await interaction.response.defer()  # Notificar a Discord que la respuesta tomará tiempo
+    
     if not SERVER_DIRECTORY:
-        await interaction.response.send_message("⚠️ La ruta del directorio del servidor no está configurada.")
+        await interaction.followup.send("⚠️ La ruta del directorio del servidor no está configurada.")
         return
 
-    # Verificar si el servidor ya está activo
+    # Verificar si el servidor ya está activo antes de iniciar
     try:
         with socket.create_connection((MINECRAFT_SERVER_IP, MINECRAFT_SERVER_PORT), timeout=5):
-            await interaction.response.send_message("✅ El servidor de Minecraft ya está activo y no necesita ser iniciado nuevamente.")
+            await interaction.followup.send("✅ El servidor de Minecraft ya está activo y no necesita ser iniciado nuevamente.")
             return
     except (socket.timeout, ConnectionRefusedError):
-        pass
+        pass  # El servidor no está activo, proceder con el inicio
 
     # Conexión SSH y ejecución del servidor
     try:
@@ -116,9 +119,10 @@ async def iniciar_servidor(interaction: discord.Interaction):
         ssh.exec_command(command)
 
         ssh.close()
-        await interaction.response.send_message("✅ Se ha enviado el comando para iniciar el servidor de Minecraft.")
+        await interaction.followup.send("✅ Se ha enviado el comando para iniciar el servidor de Minecraft.")
     except Exception as e:
-        await interaction.response.send_message(f"❌ Error al conectar por SSH: {e}")
+        await interaction.followup.send(f"❌ Error al conectar por SSH: {e}")
+
 
 @tree.command(name="estado_servidor", description="Verifica si el servidor de Minecraft está activo")
 async def estado_servidor(interaction: discord.Interaction):
@@ -127,6 +131,19 @@ async def estado_servidor(interaction: discord.Interaction):
             await interaction.response.send_message("✅ El servidor de Minecraft está activo y aceptando conexiones.")
     except (socket.timeout, ConnectionRefusedError):
         await interaction.response.send_message("❌ El servidor de Minecraft no está activo o no responde.")
+
+@tree.command(name="apagar_servidor", description="Apaga el servidor de Minecraft")
+async def apagar_servidor(interaction: discord.Interaction):
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER, password=SSH_PASSWORD)
+        stdin, stdout, stderr = ssh.exec_command("screen -S minecraft -X stuff 'stop\n'")
+        ssh.close()
+        await interaction.response.send_message("🛑 Servidor de Minecraft apagado correctamente.")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error al apagar el servidor: {e}")
+
 
 @tree.command(name="alimentar_mono", description="Alimenta al argentino mono (@CT) y cuenta las veces")
 async def alimentar_mono(interaction: discord.Interaction):
