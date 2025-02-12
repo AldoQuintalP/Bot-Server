@@ -60,6 +60,10 @@ async def on_ready():
     await tree.sync()  # Sincronizar slash commands
     print(f'Bot conectado como {bot.user}')
     print("✅ Slash commands sincronizados correctamente.")
+    # Iniciar el loop para mantener el bot despierto
+    if not keep_awake.is_running():
+        print(f'🚀 Iniciando loop para mantener el bot despierto')
+        keep_awake.start()
 
 @tree.command(name="hola", description="Responde con un saludo")
 async def hola(interaction: discord.Interaction):
