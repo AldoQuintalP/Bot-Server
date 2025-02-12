@@ -137,17 +137,46 @@ async def estado_servidor(interaction: discord.Interaction):
     await interaction.followup.send(mensaje)  # 📌 Enviar la respuesta después de comprobar el estado
 
 
-@tree.command(name="apagar_servidor", description="Apaga el servidor de Minecraft")
-async def apagar_servidor(interaction: discord.Interaction):
+@tree.command(name="apaga_servidor", description="Apaga el servidor de Minecraft")
+async def apaga_servidor(interaction: discord.Interaction):
+    await interaction.response.defer()  # ⚡ Evita errores de "Unknown interaction"
+
+    if not SERVER_DIRECTORY:
+        await interaction.followup.send("⚠️ La ruta del directorio del servidor no está configurada.")
+        return
+
     try:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(SSH_HOST, port=SSH_PORT, username=SSH_USER, password=SSH_PASSWORD)
-        stdin, stdout, stderr = ssh.exec_command("screen -S minecraft -X stuff 'stop\n'")
-        ssh.close()
-        await interaction.response.send_message("🛑 Servidor de Minecraft apagado correctamente.")
+        # Intentar apagar el servidor de Minecraft de forma segura
+        process = subprocess.Popen(
+            "tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        output, _ = process.communicate()
+
+        if b"java.exe" in output or b"javaw.exe" in output:
+            # Enviar el comando "stop" al servidor si está corriendo
+            stop_command = 'echo "stop" | powershell -NoProfile -Command "& {Get-Process java | Stop-Process -Force}"'
+            subprocess.run(stop_command, shell=True)
+
+            time.sleep(5)  # Esperar un poco para confirmar el apagado
+
+            # Verificar si el proceso Java sigue activo
+            process = subprocess.Popen(
+                "tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            output, _ = process.communicate()
+
+            if b"java.exe" in output or b"javaw.exe" in output:
+                await interaction.followup.send("⚠️ El servidor sigue encendido. Intentando forzar el apagado...")
+                subprocess.run("taskkill /F /IM java.exe", shell=True)
+                await interaction.followup.send("✅ Servidor de Minecraft apagado con éxito.")
+            else:
+                await interaction.followup.send("✅ Servidor de Minecraft apagado correctamente usando 'stop'.")
+        else:
+            await interaction.followup.send("❌ No se encontró un servidor de Minecraft en ejecución.")
+
     except Exception as e:
-        await interaction.response.send_message(f"❌ Error al apagar el servidor: {e}")
+        await interaction.followup.send(f"❌ Error al intentar apagar el servidor: {e}")
+
 
 
 @tree.command(name="alimentar_mono", description="Alimenta al argentino mono (@CT) y cuenta las veces")
