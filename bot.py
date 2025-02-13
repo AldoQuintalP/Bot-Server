@@ -146,39 +146,30 @@ async def apaga_servidor(interaction: discord.Interaction):
         return
 
     try:
-        # Verificar si hay procesos Java en ejecución
-        process = subprocess.Popen("tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, _ = process.communicate()
+        # Verificar si el servidor está en ejecución con tasklist
+        process = subprocess.run(["tasklist"], capture_output=True, text=True)
+        if "java.exe" in process.stdout or "javaw.exe" in process.stdout:
+            await interaction.followup.send("⏳ Apagando el servidor de Minecraft...")
 
-        if b"java.exe" in output or b"javaw.exe" in output:
-            await interaction.followup.send("🛑 Intentando apagar el servidor de Minecraft...")
+            # Enviar "stop" al servidor de Minecraft usando PowerShell
+            stop_command = "powershell -Command \"Get-Process java | Stop-Process -Force\""
+            subprocess.run(stop_command, shell=True)
 
-            # Primero, intentar apagarlo con el comando "stop"
-            stop_command = 'powershell -Command "echo stop | Out-File -Encoding ASCII -Append server_input.txt"'
-            subprocess.run(stop_command, shell=True, cwd=SERVER_DIRECTORY)
+            time.sleep(5)  # Esperar 5 segundos antes de verificar
 
-            time.sleep(5)  # Esperar un poco para ver si se apaga correctamente
-
-            # Verificar si sigue en ejecución
-            process = subprocess.Popen("tasklist", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, _ = process.communicate()
-
-            if b"java.exe" in output or b"javaw.exe" in output:
+            # Revisar si sigue en ejecución
+            process_check = subprocess.run(["tasklist"], capture_output=True, text=True)
+            if "java.exe" in process_check.stdout or "javaw.exe" in process_check.stdout:
                 await interaction.followup.send("⚠️ El servidor sigue encendido. Intentando forzar el apagado...")
-
-                # Forzar el cierre de procesos Java
                 subprocess.run("taskkill /F /IM java.exe", shell=True)
-                subprocess.run("taskkill /F /IM javaw.exe", shell=True)
-
-                await interaction.followup.send("✅ Servidor de Minecraft apagado con éxito mediante 'taskkill'.")
+                await interaction.followup.send("✅ Servidor de Minecraft apagado con éxito.")
             else:
-                await interaction.followup.send("✅ Servidor de Minecraft apagado correctamente con el comando 'stop'.")
+                await interaction.followup.send("✅ Servidor de Minecraft apagado correctamente usando 'stop'.")
         else:
             await interaction.followup.send("❌ No se encontró un servidor de Minecraft en ejecución.")
 
     except Exception as e:
         await interaction.followup.send(f"❌ Error al intentar apagar el servidor: {e}")
-
 
 
 @tree.command(name="alimentar_mono", description="Alimenta al argentino mono (@CT) y cuenta las veces")
